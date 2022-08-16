@@ -1,19 +1,18 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs::{self, OpenOptions},
-    io::{Read, Seek, SeekFrom, Write},
+    fs,
     path::PathBuf,
 };
 
 use anyhow::{anyhow, Result};
-use chrono::{Date, NaiveDate, Utc};
+use camino::Utf8PathBuf;
+use chrono::Utc;
 use clap::{ArgGroup, Parser};
 use git2::{DiffOptions, Repository, Sort};
 use guppy::graph::{DependencyDirection, PackageMetadata};
 use jrsonnet_evaluator::{typed::Typed, FileImportResolver, State};
 use semver::Version;
 use std::fmt::Write as _;
-use toml_edit::TableLike;
 use tracing::{info, warn};
 
 mod bump;
@@ -118,7 +117,7 @@ fn main() -> Result<()> {
                 changelog: String::new(),
                 bump: Bump::None,
                 bump_reasons: vec![],
-                package: outer.clone(),
+                package: outer,
             },
         );
     }
@@ -214,8 +213,14 @@ fn main() -> Result<()> {
                 let id = commit.id();
                 commits.push(Commit {
                     id: id.to_string(),
-                    author_email: author.email().ok_or(anyhow!("utf-8 email"))?.to_owned(),
-                    author_name: author.name().ok_or(anyhow!("utf-8 name"))?.to_owned(),
+                    author_email: author
+                        .email()
+                        .ok_or_else(|| anyhow!("utf-8 email"))?
+                        .to_owned(),
+                    author_name: author
+                        .name()
+                        .ok_or_else(|| anyhow!("utf-8 name"))?
+                        .to_owned(),
                     message: message.to_owned(),
                 })
             }
@@ -244,7 +249,7 @@ fn main() -> Result<()> {
                     let bump = statuses[a].bump;
                     let mut a = statuses.get_mut(inner).expect("there is all packages");
                     a.bump_reasons
-                        .push(format!("nested packages should have equal bump"));
+                        .push("nested packages should have equal bump".to_string());
                     a.bump = bump;
                     bumped = true;
                 }
@@ -255,7 +260,7 @@ fn main() -> Result<()> {
                 continue;
             }
             for dependent in workspace.package_ids(DependencyDirection::Forward) {
-                if !metadata.directly_depends_on(&dependent, &id)? {
+                if !metadata.directly_depends_on(dependent, id)? {
                     continue;
                 }
                 let old_bump = statuses[dependent].bump;
@@ -285,7 +290,7 @@ fn main() -> Result<()> {
             out,
             "After your confirmation, I will append the following entries to changelogs of packages:\n\n"
         )?;
-        for (_, package) in &statuses {
+        for package in statuses.values() {
             if package.changelog.trim() == "" {
                 continue;
             }
@@ -297,7 +302,7 @@ fn main() -> Result<()> {
                 package.bump
             )?;
             for line in package.changelog.trim().lines() {
-                if line.starts_with("#") {
+                if line.starts_with('#') {
                     write!(out, "#")?;
                 }
                 writeln!(out, "{}", line)?;
@@ -310,7 +315,7 @@ fn main() -> Result<()> {
             out,
             "I may not be able to describe reason for bump, but they should be required:\n\n"
         )?;
-        for (_, package) in statuses {
+        for package in statuses.values() {
             if package.bump == Bump::None {
                 continue;
             }
@@ -329,7 +334,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    for (_, package) in &statuses {
+    for package in statuses.values() {
         if package.changelog.is_empty() {
             continue;
         }
@@ -356,10 +361,10 @@ fn main() -> Result<()> {
             new_changelog,
             "## [v{}] {}\n\n",
             package.final_version(),
-            date.to_string()
+            date
         )?;
         for line in package.changelog.trim().lines() {
-            if line.starts_with("#") {
+            if line.starts_with('#') {
                 write!(new_changelog, "#")?;
             }
             writeln!(new_changelog, "{}", line)?;
