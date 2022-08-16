@@ -135,6 +135,24 @@ fn main() -> Result<()> {
             .source()
             .workspace_path()
             .expect("this is workspace package");
+        let extra_dirs: Vec<Utf8PathBuf> =
+            if let Some(v) = pkg.metadata_table().get("bureaucrate-extra-dirs") {
+                let arr = v
+                    .as_array()
+                    .ok_or_else(|| anyhow!("extra dirs should be a list"))?;
+                let mut out = vec![];
+                for val in arr {
+                    let pathstr = val
+                        .as_str()
+                        .ok_or_else(|| anyhow!("extra dir should be a string"))?;
+                    let mut path = pkgdir.to_path_buf();
+                    path.push(pathstr);
+                    out.push(path);
+                }
+                out
+            } else {
+                vec![]
+            };
 
         info!("checking for updates in {} ({pkgdir})", pkg.name());
         let mut walk = repo.revwalk()?;
@@ -173,13 +191,19 @@ fn main() -> Result<()> {
                 diff.find_similar(None)?;
                 // TODO: use pathspec matcher, instead of naive delta iteration
                 for diff in diff.deltas() {
-                    for file in [diff.old_file().path(), diff.new_file().path()]
+                    'diff_files: for file in [diff.old_file().path(), diff.new_file().path()]
                         .into_iter()
                         .flatten()
                     {
                         if file.starts_with(pkgdir.as_std_path()) {
                             changed = true;
                             break;
+                        }
+                        for dir in &extra_dirs {
+                            if file.starts_with(dir.as_std_path()) {
+                                changed = true;
+                                break 'diff_files;
+                            }
                         }
                     }
                 }
