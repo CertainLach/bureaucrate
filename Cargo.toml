@@ -9,11 +9,11 @@ tracing = "0.1.35"
 tracing-subscriber = "0.3.14"
 
 # CLI parser
-clap = { version = "3.2.10", features = ["derive"] }
+clap = { version = "4.5.17", features = ["derive"] }
 
 # Project analysis
-git2 = "0.14.4"
-guppy = "0.14.2"
+git2 = "0.19.0"
+guppy = "0.17.7"
 semver = "1.0.12"
 camino = "1.0.9"
 
@@ -21,7 +21,7 @@ camino = "1.0.9"
 chrono = "0.4.19"
 
 # Cargo.toml modification
-toml_edit = "0.14.4"
+toml_edit = "0.22.20"
 
 # Error reporting
 anyhow = "1.0.58"

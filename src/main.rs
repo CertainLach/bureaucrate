@@ -231,7 +231,7 @@ fn main() -> Result<()> {
         let verdict = (gen.commit_handler)(commits)
             .map_err(|e| anyhow!("{e}"))?;
 
-        let mut pkg_status = statuses.get_mut(pkg.id()).expect("there is all packages");
+        let pkg_status = statuses.get_mut(pkg.id()).expect("there is all packages");
         pkg_status.changelog = verdict.changelog.clone();
         pkg_status.bump = Bump::from_raw(verdict.bump);
         if pkg_status.bump > Bump::None {
@@ -249,7 +249,7 @@ fn main() -> Result<()> {
             for (a, b) in [(outer, inner), (inner, outer)] {
                 if statuses[b].bump < statuses[a].bump {
                     let bump = statuses[a].bump;
-                    let mut a = statuses.get_mut(inner).expect("there is all packages");
+                    let a = statuses.get_mut(inner).expect("there is all packages");
                     a.bump_reasons
                         .push("nested packages should have equal bump".to_string());
                     a.bump = bump;
@@ -269,7 +269,7 @@ fn main() -> Result<()> {
                 if old_bump >= Bump::Patch {
                     continue;
                 }
-                let mut dependent = statuses.get_mut(dependent).expect("there is all packages");
+                let dependent = statuses.get_mut(dependent).expect("there is all packages");
                 dependent
                     .bump_reasons
                     .push(format!("dependency ({id}) had bump",));
@@ -378,8 +378,8 @@ fn main() -> Result<()> {
     }
     for (_, package) in statuses {
         let manifest_path = package.package.manifest_path();
-        let manifest = fs::read_to_string(&manifest_path)?;
-        let mut manifest: toml_edit::Document = manifest.parse()?;
+        let manifest = fs::read_to_string(manifest_path)?;
+        let mut manifest: toml_edit::DocumentMut = manifest.parse()?;
         let root_table = manifest.as_table_mut();
 
         let package_table = root_table
@@ -391,7 +391,7 @@ fn main() -> Result<()> {
             "version",
             toml_edit::value(package.final_version().to_string()),
         );
-        fs::write(&manifest_path, manifest.to_string())?;
+        fs::write(manifest_path, manifest.to_string())?;
     }
 
     Ok(())
