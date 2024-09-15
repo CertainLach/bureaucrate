@@ -18,7 +18,6 @@ semver = "1.0.12"
 camino = "1.0.9"
 
 # Generation
-jrsonnet-evaluator = { git = "https://github.com/CertainLach/jrsonnet.git", version = "0.4.2" }
 chrono = "0.4.19"
 
 # Cargo.toml modification
@@ -26,3 +25,13 @@ toml_edit = "0.14.4"
 
 # Error reporting
 anyhow = "1.0.58"
+
+[dependencies.jrsonnet-stdlib]
+git = "https://github.com/CertainLach/jrsonnet.git"
+rev = "a31a8ef0c0189f88ed32d84cb2dcae3b7d7861af"
+version = "0.5.0-pre96"
+
+[dependencies.jrsonnet-evaluator]
+git = "https://github.com/CertainLach/jrsonnet.git"
+rev = "a31a8ef0c0189f88ed32d84cb2dcae3b7d7861af"
+version = "0.5.0-pre96"

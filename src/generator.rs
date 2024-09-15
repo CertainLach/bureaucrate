@@ -2,12 +2,7 @@
 
 use std::{marker::PhantomData, ops::Deref};
 
-use jrsonnet_evaluator::{
-    error::{Error, Result},
-    function::native::NativeDesc,
-    typed::{BoundedI8, CheckType, ComplexValType, Typed, ValType},
-    State, Val,
-};
+use jrsonnet_evaluator::{error::Result, function::native::NativeDesc, typed::{BoundedI8, CheckType, ComplexValType, Typed, ValType}, RuntimeError, Val};
 
 // TODO: Move to jrsonnet_evaluator::typed
 pub struct NativeFn<T>(PhantomData<T>, T::Value)
@@ -20,12 +15,12 @@ where
 {
     const TYPE: &'static ComplexValType = &ComplexValType::Simple(ValType::Func);
 
-    fn into_untyped(_typed: Self, _s: State) -> Result<Val> {
-        Err(Error::RuntimeError("can't convert arbitrary function to native".into()).into())
+    fn into_untyped(_: Self) -> Result<Val> {
+        Err(RuntimeError("can't convert arbitrary function to native".into()).into())
     }
 
-    fn from_untyped(untyped: Val, s: State) -> Result<Self> {
-        Self::TYPE.check(s, &untyped)?;
+    fn from_untyped(untyped: Val) -> Result<Self> {
+        Self::TYPE.check(&untyped)?;
         let fun = untyped.as_func().expect("type checked");
         Ok(Self(PhantomData, fun.into_native::<T>()))
     }

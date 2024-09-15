@@ -13,6 +13,7 @@ use guppy::graph::{DependencyDirection, PackageMetadata};
 use jrsonnet_evaluator::{typed::Typed, FileImportResolver, State};
 use semver::Version;
 use std::fmt::Write as _;
+use jrsonnet_evaluator::trace::PathResolver;
 use tracing::{info, warn};
 
 mod bump;
@@ -162,15 +163,16 @@ fn main() -> Result<()> {
             walk.hide(hide)?;
         }
 
-        let s = State::default();
-        s.set_import_resolver(Box::new(FileImportResolver::default()));
-        s.with_stdlib();
+        let mut s = State::builder();
+        s.import_resolver(FileImportResolver::default())
+            .context_initializer(jrsonnet_stdlib::ContextInitializer::new(PathResolver::new_cwd_fallback()));
+        let s = s.build();
 
         let gen = s
             .import(opts.generator.canonicalize()?)
-            .map_err(|e| anyhow!("{}", s.stringify_err(&e)))?;
-        let gen = generator::Generator::from_untyped(gen, s.clone())
-            .map_err(|e| anyhow!("{}", s.stringify_err(&e)))?;
+            .map_err(|e| anyhow!("{e}"))?;
+        let gen = generator::Generator::from_untyped(gen)
+            .map_err(|e| anyhow!("{e}"))?;
 
         let mut commits = vec![];
         for rev in walk {
@@ -226,8 +228,8 @@ fn main() -> Result<()> {
             }
         }
 
-        let verdict = (gen.commit_handler)(s.clone(), commits)
-            .map_err(|e| anyhow!("{}", s.stringify_err(&e)))?;
+        let verdict = (gen.commit_handler)(commits)
+            .map_err(|e| anyhow!("{e}"))?;
 
         let mut pkg_status = statuses.get_mut(pkg.id()).expect("there is all packages");
         pkg_status.changelog = verdict.changelog.clone();
@@ -356,7 +358,7 @@ fn main() -> Result<()> {
         };
         let next = &old_changelog[next_start..];
 
-        let date = Utc::now().date().format("%Y-%m-%d").to_string();
+        let date = Utc::now().date_naive().format("%Y-%m-%d").to_string();
         write!(
             new_changelog,
             "## [v{}] {}\n\n",
