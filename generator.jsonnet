@@ -50,29 +50,20 @@ local
     optBang: $.apply($.optional($.capture('!')), function(v) v != null),
     header: $.seq([$.convType, $.optScope, $.optBang, ': ', $.capture($.greedy($.charAny()))]),
   },
-  parseHeader(header1) =
+  parseHeader(rawHeader) =
     local
       replacePrefix(string, from, to) =
         if std.startsWith(string, from) then to + string[std.length(from):]
         else string,
+      replacePrefixes(string, replacements) =
+        std.foldl(function(string, replacement) replacePrefix(string, replacement[0], replacement[1]), replacements, string),
       header =
-        replacePrefix(
-          replacePrefix(
-            replacePrefix(
-              replacePrefix(
-                header1,
-                'doc:',
-                'docs:'
-              ),
-              'doc(',
-              'docs(',
-            ),
-            'feature:',
-            'feat:'
-          ),
-          'Fix:',
-          'fix:',
-        ),
+        replacePrefixes(rawHeader, [
+          ['doc:', 'docs:'],
+          ['doc(', 'docs('],
+          ['feature:', 'feat:'],
+          ['Fix:', 'fix:'],
+        ]),
       parsed = pcl.runParser(pcl.header, header);
     if
       std.startsWith(header, 'Merge branch ')
