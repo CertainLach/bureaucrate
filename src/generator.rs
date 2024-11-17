@@ -1,8 +1,13 @@
 //! Types used by `--generator` code
 
-use std::{marker::PhantomData, ops::Deref};
+use std::{fmt::Debug, marker::PhantomData, ops::Deref};
 
-use jrsonnet_evaluator::{error::Result, function::native::NativeDesc, typed::{BoundedI8, CheckType, ComplexValType, Typed, ValType}, RuntimeError, Val};
+use jrsonnet_evaluator::{
+    error::Result,
+    function::native::NativeDesc,
+    typed::{BoundedI8, CheckType, ComplexValType, Typed, ValType},
+    RuntimeError, Val,
+};
 
 // TODO: Move to jrsonnet_evaluator::typed
 pub struct NativeFn<T>(PhantomData<T>, T::Value)
@@ -62,6 +67,14 @@ pub struct Verdict {
     ///     bump (release) require manual intervention instead
     // TODO: impl Typed for Bump
     pub bump: BoundedI8<0, 3>,
+}
+impl Debug for Verdict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Verdict")
+            .field("changelog", &self.changelog)
+            .field("bump", &self.bump.value())
+            .finish()
+    }
 }
 
 #[derive(jrsonnet_evaluator::typed::Typed)]

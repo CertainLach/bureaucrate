@@ -10,10 +10,10 @@ use chrono::Utc;
 use clap::{ArgGroup, Parser};
 use git2::{DiffOptions, Repository, Sort};
 use guppy::graph::{DependencyDirection, PackageMetadata};
+use jrsonnet_evaluator::trace::{HiDocFormat, PathResolver, TraceFormat};
 use jrsonnet_evaluator::{typed::Typed, FileImportResolver, State};
 use semver::Version;
 use std::fmt::Write as _;
-use jrsonnet_evaluator::trace::PathResolver;
 use tracing::{info, warn};
 
 mod bump;
@@ -35,6 +35,10 @@ struct Opts {
     /// you can't have rev pointing to parent of first commit
     #[clap(long, group = "since_rev")]
     root: bool,
+
+    // The path to the git repository to be processed
+    #[clap(long, default_value = ".")]
+    path: PathBuf,
 
     /// Custom commit processor written in jsonnet
     #[clap(long)]
@@ -74,7 +78,7 @@ fn main() -> Result<()> {
     let opts = Opts::parse();
 
     info!("opening repo");
-    let repo = Repository::open(".")?;
+    let repo = Repository::open(&opts.path)?;
 
     info!("searching for top-level packages");
     let cargo_metadata = guppy::MetadataCommand::new().exec()?;
@@ -156,6 +160,7 @@ fn main() -> Result<()> {
 
         info!("checking for updates in {} ({pkgdir})", pkg.name());
         let mut walk = repo.revwalk()?;
+        info!("checked for updates in {} ({pkgdir})", pkg.name());
         walk.reset()?;
         walk.set_sorting(Sort::TOPOLOGICAL | Sort::TIME)?;
         walk.push_head()?;
@@ -165,14 +170,15 @@ fn main() -> Result<()> {
 
         let mut s = State::builder();
         s.import_resolver(FileImportResolver::default())
-            .context_initializer(jrsonnet_stdlib::ContextInitializer::new(PathResolver::new_cwd_fallback()));
+            .context_initializer(jrsonnet_stdlib::ContextInitializer::new(
+                PathResolver::new_cwd_fallback(),
+            ));
         let s = s.build();
 
         let gen = s
             .import(opts.generator.canonicalize()?)
             .map_err(|e| anyhow!("{e}"))?;
-        let gen = generator::Generator::from_untyped(gen)
-            .map_err(|e| anyhow!("{e}"))?;
+        let gen = generator::Generator::from_untyped(gen).map_err(|e| anyhow!("{e}"))?;
 
         let mut commits = vec![];
         for rev in walk {
@@ -228,8 +234,17 @@ fn main() -> Result<()> {
             }
         }
 
-        let verdict = (gen.commit_handler)(commits)
-            .map_err(|e| anyhow!("{e}"))?;
+        let verdict = match (gen.commit_handler)(commits) {
+            Ok(v) => v,
+            Err(e) => {
+                let trace_format = HiDocFormat {
+                    resolver: PathResolver::new_cwd_fallback(),
+                    max_trace: 20,
+                };
+
+                return Err(anyhow!("{}", trace_format.format(&e)?));
+            }
+        };
 
         let pkg_status = statuses.get_mut(pkg.id()).expect("there is all packages");
         pkg_status.changelog = verdict.changelog.clone();
@@ -376,7 +391,7 @@ fn main() -> Result<()> {
 
         fs::write(&changelog_path, new_changelog.trim())?;
     }
-    for (_, package) in statuses {
+    /*for (_, package) in statuses {
         let manifest_path = package.package.manifest_path();
         let manifest = fs::read_to_string(manifest_path)?;
         let mut manifest: toml_edit::DocumentMut = manifest.parse()?;
@@ -392,7 +407,7 @@ fn main() -> Result<()> {
             toml_edit::value(package.final_version().to_string()),
         );
         fs::write(manifest_path, manifest.to_string())?;
-    }
+    }*/
 
     Ok(())
 }
