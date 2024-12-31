@@ -1,45 +1,8 @@
 //! Types used by `--generator` code
 
-use std::{fmt::Debug, marker::PhantomData, ops::Deref};
+use std::fmt::Debug;
 
-use jrsonnet_evaluator::{
-    error::Result,
-    function::native::NativeDesc,
-    typed::{BoundedI8, CheckType, ComplexValType, Typed, ValType},
-    RuntimeError, Val,
-};
-
-// TODO: Move to jrsonnet_evaluator::typed
-pub struct NativeFn<T>(PhantomData<T>, T::Value)
-where
-    T: NativeDesc;
-
-impl<T> Typed for NativeFn<T>
-where
-    T: NativeDesc,
-{
-    const TYPE: &'static ComplexValType = &ComplexValType::Simple(ValType::Func);
-
-    fn into_untyped(_: Self) -> Result<Val> {
-        Err(RuntimeError("can't convert arbitrary function to native".into()).into())
-    }
-
-    fn from_untyped(untyped: Val) -> Result<Self> {
-        Self::TYPE.check(&untyped)?;
-        let fun = untyped.as_func().expect("type checked");
-        Ok(Self(PhantomData, fun.into_native::<T>()))
-    }
-}
-impl<T> Deref for NativeFn<T>
-where
-    T: NativeDesc,
-{
-    type Target = T::Value;
-
-    fn deref(&self) -> &Self::Target {
-        &self.1
-    }
-}
+use jrsonnet_evaluator::typed::{BoundedI8, NativeFn};
 
 /// Generator input is [`Vec<Commit>`]
 #[derive(jrsonnet_evaluator::typed::Typed, Debug, Clone)]
