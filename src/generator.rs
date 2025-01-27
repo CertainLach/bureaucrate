@@ -1,45 +1,8 @@
 //! Types used by `--generator` code
 
-use std::{marker::PhantomData, ops::Deref};
+use std::fmt::Debug;
 
-use jrsonnet_evaluator::{
-    error::{Error, Result},
-    function::native::NativeDesc,
-    typed::{BoundedI8, CheckType, ComplexValType, Typed, ValType},
-    State, Val,
-};
-
-// TODO: Move to jrsonnet_evaluator::typed
-pub struct NativeFn<T>(PhantomData<T>, T::Value)
-where
-    T: NativeDesc;
-
-impl<T> Typed for NativeFn<T>
-where
-    T: NativeDesc,
-{
-    const TYPE: &'static ComplexValType = &ComplexValType::Simple(ValType::Func);
-
-    fn into_untyped(_typed: Self, _s: State) -> Result<Val> {
-        Err(Error::RuntimeError("can't convert arbitrary function to native".into()).into())
-    }
-
-    fn from_untyped(untyped: Val, s: State) -> Result<Self> {
-        Self::TYPE.check(s, &untyped)?;
-        let fun = untyped.as_func().expect("type checked");
-        Ok(Self(PhantomData, fun.into_native::<T>()))
-    }
-}
-impl<T> Deref for NativeFn<T>
-where
-    T: NativeDesc,
-{
-    type Target = T::Value;
-
-    fn deref(&self) -> &Self::Target {
-        &self.1
-    }
-}
+use jrsonnet_evaluator::typed::{BoundedI8, NativeFn};
 
 /// Generator input is [`Vec<Commit>`]
 #[derive(jrsonnet_evaluator::typed::Typed, Debug, Clone)]
@@ -67,6 +30,14 @@ pub struct Verdict {
     ///     bump (release) require manual intervention instead
     // TODO: impl Typed for Bump
     pub bump: BoundedI8<0, 3>,
+}
+impl Debug for Verdict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Verdict")
+            .field("changelog", &self.changelog)
+            .field("bump", &self.bump.value())
+            .finish()
+    }
 }
 
 #[derive(jrsonnet_evaluator::typed::Typed)]
